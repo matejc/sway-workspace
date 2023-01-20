@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::env::var;
 
 use clap::{Parser, ValueEnum};
 use ksway::{Client, ipc_command};
@@ -10,7 +11,7 @@ use serde_json::{Value, from_str};
 #[command(author, version, about, long_about = None)]
 struct Args {
    /// Sway/i3 msg executable name or path
-   #[arg(short, long, default_value_t = String::from(env!("SWAYSOCK")))]
+   #[arg(short, long, default_value_t = var("SWAYSOCK").unwrap())]
    sock: String,
 
    /// Action
