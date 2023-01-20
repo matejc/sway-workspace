@@ -1,6 +1,7 @@
-use std::{process::Command, cmp::Ordering};
+use std::cmp::Ordering;
 
 use clap::{Parser, ValueEnum};
+use ksway::{Client, ipc_command};
 use serde_json::{Value, from_str};
 
 
@@ -9,8 +10,8 @@ use serde_json::{Value, from_str};
 #[command(author, version, about, long_about = None)]
 struct Args {
    /// Sway/i3 msg executable name or path
-   #[arg(short, long, default_value_t = String::from("swaymsg"))]
-   exec: String,
+   #[arg(short, long, default_value_t = String::from(env!("SWAYSOCK")))]
+   sock: String,
 
    /// Action
    #[arg(value_enum)]
@@ -25,7 +26,7 @@ struct Args {
    no_focus_ws: bool,
 
    /// Print workspace number to stdout
-   #[arg(short, long = "stdout", default_value_t = false)]
+   #[arg(short = 'o', long = "stdout", default_value_t = false)]
    stdout_ws: bool,
 }
 
@@ -39,41 +40,16 @@ enum Action {
     PrevOnOutput,
 }
 
-fn get_workspaces(exec: String) -> Vec<Value> {
-    let child = Command::new(exec)
-        .arg("-t").arg("get_workspaces")
-        .output()
-        .expect("executing get_workspaces failed");
-
-    if let Some(0) = child.status.code() {
-        return from_str(&String::from_utf8_lossy(&child.stdout)).unwrap();
-    } else {
-        panic!("get_workspaces({:?}): {}", child.status.code(), String::from_utf8_lossy(&child.stderr));
-    }
+fn get_workspaces(client: &mut Client) -> Vec<Value> {
+    return from_str(&String::from_utf8_lossy(&client.ipc(ipc_command::get_workspaces()).unwrap())).unwrap();
 }
 
-fn focus_ws(exec: String, num: i64) {
-    let child = Command::new(exec)
-        .arg("workspace").arg(num.to_string())
-        .output()
-        .expect("executing focus failed");
-    if let Some(0) = child.status.code() {
-        return;
-    } else {
-        panic!("focus({:?}): {}", child.status.code(), String::from_utf8_lossy(&child.stderr));
-    }
+fn focus_ws(client: &mut Client, num: i64) -> Result<Vec<u8>, ksway::Error> {
+    return client.ipc(ipc_command::run(format!("workspace number {num}")));
 }
 
-fn move_ws(exec: String, num: i64) {
-    let child = Command::new(exec)
-        .arg("move").arg("workspace").arg(num.to_string())
-        .output()
-        .expect("executing move failed");
-    if let Some(0) = child.status.code() {
-        return;
-    } else {
-        panic!("move({:?}): {}", child.status.code(), String::from_utf8_lossy(&child.stderr));
-    }
+fn move_ws(client: &mut Client, num: i64) -> Result<Vec<u8>, ksway::Error> {
+    return client.ipc(ipc_command::run(format!("move workspace number {num}")));
 }
 
 fn find_by(workspaces: &Vec<Value>, current: i64, step: i64) -> i64 {
@@ -143,7 +119,9 @@ fn find_output(workspaces: &Vec<Value>, current: i64, step: i64, output: String)
 fn main() {
     let args: Args = Args::parse();
 
-    let workspaces: &Vec<Value> = &get_workspaces(args.exec.to_owned());
+    let mut client = Client::connect_to_path(args.sock.to_owned()).unwrap();
+
+    let workspaces: &Vec<Value> = &get_workspaces(&mut client);
 
     let current_ws: &Value = workspaces.into_iter().filter(|w| w["focused"] == true).nth(0).unwrap();
     let current_ws_num: i64 = current_ws["num"].as_i64().unwrap();
@@ -159,11 +137,11 @@ fn main() {
     };
 
     if args.move_ws {
-        move_ws(args.exec.to_owned(), num);
+        move_ws(&mut client, num).unwrap();
     }
 
     if !args.no_focus_ws {
-        focus_ws(args.exec.to_owned(), num);
+        focus_ws(&mut client, num).unwrap();
     }
 
     if args.stdout_ws {

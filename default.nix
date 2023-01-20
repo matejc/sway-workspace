@@ -2,12 +2,11 @@
 with pkgs;
 let
   build = rustPlatform.buildRustPackage {
-    pname = "sway-workspace";
-    version = "0.1.0";
+    name = "sway-workspace";
 
     src = ./.;
 
-    cargoSha256 = "sha256-V8jqHCxvpBGjHCar3CNn78mWtKifcdOB32D7HIR64Qc=";
+    cargoSha256 = "";
   };
 
   shell = mkShell {
