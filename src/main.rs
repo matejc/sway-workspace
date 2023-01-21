@@ -10,7 +10,7 @@ use serde_json::{Value, from_str};
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-   /// Sway/i3 msg executable name or path
+   /// Sway/i3 socket path
    #[arg(short, long, default_value_t = var("SWAYSOCK").unwrap())]
    sock: String,
 

@@ -1,6 +1,6 @@
 # sway-workspace
 
-Output aware Sway/i3wm workspace switcher with window move feature
+Output aware Sway workspace switcher with window move feature
 
 ## Install
 
@@ -17,10 +17,10 @@ Arguments:
   <ACTION>  Action [possible values: next, prev, next-output, prev-output, next-on-output, prev-on-output]
 
 Options:
-  -e, --exec <EXEC>  Sway/i3 msg executable name or path [default: swaymsg]
+  -s, --sock <SOCK>  Sway socket path [default: /run/user/1000/sway-ipc.1000.3062.sock]
   -m, --move         Move to new workspace
   -n, --no-focus     Do not focus to new workspace
-  -s, --stdout       Print workspace number to stdout
+  -o, --stdout       Print workspace number to stdout
   -h, --help         Print help
   -V, --version      Print version
 ```
