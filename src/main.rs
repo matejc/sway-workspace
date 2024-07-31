@@ -10,7 +10,7 @@ use serde_json::{Value, from_str};
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-   /// Sway/i3 socket path
+   /// Sway socket path
    #[arg(short, long, default_value_t = var("SWAYSOCK").unwrap())]
    sock: String,
 
@@ -29,6 +29,10 @@ struct Args {
    /// Print workspace number to stdout
    #[arg(short = 'o', long = "stdout", default_value_t = false)]
    stdout_ws: bool,
+
+   /// Skip empty workspaces
+   #[arg(short = 'e', long = "skip-empty", default_value_t = false)]
+   skip_empty: bool,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -53,8 +57,22 @@ fn move_ws(client: &mut Client, num: i64) -> Result<Vec<u8>, ksway::Error> {
     return client.ipc(ipc_command::run(format!("move workspace number {num}")));
 }
 
-fn find_by(workspaces: &Vec<Value>, current: i64, step: i64) -> i64 {
+fn find_by(workspaces: &Vec<Value>, current: i64, step: i64, skip_empty: bool) -> i64 {
     let existing: Vec<i64> = workspaces.into_iter().map(|w| w["num"].as_i64().unwrap()).collect();
+
+    if skip_empty && step >= 0 {
+        let other_nexts: Vec<i64> = existing.into_iter().filter(|e| *e >= (current + step)).collect();
+        return match other_nexts.first() {
+            Some(&value) => value,
+            None => current,
+        };
+    } else if skip_empty {
+        let other_prevs: Vec<i64> = existing.to_owned().into_iter().filter(|e| *e <= (current + step)).collect();
+        return match other_prevs.last() {
+            Some(&value) => value,
+            None => current,
+        };
+    }
 
     let mut next: i64 = current + step;
     let first: i64 = 1;
@@ -71,24 +89,36 @@ fn find_by(workspaces: &Vec<Value>, current: i64, step: i64) -> i64 {
     return next;
 }
 
-fn find_on_output(workspaces: &Vec<Value>, current: i64, step: i64, output: String) -> i64 {
+fn find_on_output(workspaces: &Vec<Value>, current: i64, step: i64, output: String, skip_empty: bool) -> i64 {
     let other_wss: Vec<&Value> = workspaces.into_iter().filter(|w| w["output"].to_string() != output).collect();
     let other_nums: Vec<i64> = other_wss.into_iter().map(|w| w["num"].as_i64().unwrap()).collect();
+    let output_wss: Vec<&Value> = workspaces.into_iter().filter(|w| w["output"].to_string() == output).collect();
+    let output_nums: Vec<i64> = output_wss.into_iter().map(|w| w["num"].as_i64().unwrap()).collect();
 
-    let other_nums_prev: Vec<i64> = [
-        Vec::from([0]),
-        other_nums.to_owned().into_iter().filter(|n| n < &current).collect()
-    ].concat();
-    let other_nums_next: Vec<i64> = other_nums.into_iter().filter(|n| n > &current).collect();
+    if skip_empty && step >= 0 {
+        let output_nexts: Vec<i64> = output_nums.into_iter().filter(|e| *e >= (current + step)).collect();
+        return match output_nexts.first() {
+            Some(&value) => value,
+            None => current,
+        };
+    } else if skip_empty {
+        let output_prevs: Vec<i64> = output_nums.to_owned().into_iter().filter(|e| *e <= (current + step)).collect();
+        return match output_prevs.last() {
+            Some(&value) => value,
+            None => current,
+        };
+    }
 
     let mut next: i64 = current + step;
 
-    let first: i64 = other_nums_prev.into_iter().max().unwrap() + 1;
+    let other_prevs: Vec<i64> = other_nums.to_owned().into_iter().filter(|e| *e < current).collect();
+    let first: i64 = other_prevs.into_iter().max().unwrap() + 1;
 
-    let last: i64 = if other_nums_next.len() == 0 {
+    let other_nexts: Vec<i64> = other_nums.into_iter().filter(|e| *e > current).collect();
+    let last: i64 = if other_nexts.len() == 0 {
         next
     } else {
-        other_nums_next.into_iter().min().unwrap() - 1
+        other_nexts.into_iter().min().unwrap() - 1
     };
 
     if next < first {
@@ -128,13 +158,15 @@ fn main() {
     let current_ws_num: i64 = current_ws["num"].as_i64().unwrap();
     let current_output: String = current_ws["output"].to_string();
 
+    let skip_empty: bool = args.skip_empty;
+
     let num: i64 = match args.action {
-        Action::NextOnOutput => find_on_output(&workspaces, current_ws_num, 1, current_output),
-        Action::PrevOnOutput => find_on_output(&workspaces, current_ws_num, -1, current_output),
+        Action::NextOnOutput => find_on_output(&workspaces, current_ws_num, 1, current_output, skip_empty),
+        Action::PrevOnOutput => find_on_output(&workspaces, current_ws_num, -1, current_output, skip_empty),
         Action::NextOutput => find_output(&workspaces, current_ws_num, 1, current_output),
         Action::PrevOutput => find_output(&workspaces, current_ws_num, -1, current_output),
-        Action::Next => find_by(&workspaces, current_ws_num, 1),
-        Action::Prev => find_by(&workspaces, current_ws_num, -1),
+        Action::Next => find_by(&workspaces, current_ws_num, 1, skip_empty),
+        Action::Prev => find_by(&workspaces, current_ws_num, -1, skip_empty),
     };
 
     if args.move_ws {

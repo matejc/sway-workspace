@@ -49,6 +49,7 @@ Options:
   -m, --move         Move to new workspace
   -n, --no-focus     Do not focus to new workspace
   -o, --stdout       Print workspace number to stdout
+  -e, --skip-empty   Skip empty workspaces
   -h, --help         Print help
   -V, --version      Print version
 ```
