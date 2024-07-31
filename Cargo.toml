@@ -1,6 +1,6 @@
 [package]
 name = "sway-workspace"
-version = "0.2.2"
+version = "0.2.3"
 description = "Output aware Sway/i3wm workspace switcher with window move feature"
 homepage = "https://github.com/matejc/sway-workspace"
 repository = "https://github.com/matejc/sway-workspace"

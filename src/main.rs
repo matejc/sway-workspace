@@ -112,13 +112,15 @@ fn find_on_output(workspaces: &Vec<Value>, current: i64, step: i64, output: Stri
     let mut next: i64 = current + step;
 
     let other_prevs: Vec<i64> = other_nums.to_owned().into_iter().filter(|e| *e < current).collect();
-    let first: i64 = other_prevs.into_iter().max().unwrap() + 1;
+    let first: i64 = match other_prevs.into_iter().max() {
+        Some(value) => value + 1,
+        None => next,
+    };
 
     let other_nexts: Vec<i64> = other_nums.into_iter().filter(|e| *e > current).collect();
-    let last: i64 = if other_nexts.len() == 0 {
-        next
-    } else {
-        other_nexts.into_iter().min().unwrap() - 1
+    let last: i64 = match other_nexts.into_iter().min() {
+        Some(value) => value - 1,
+        None => next,
     };
 
     if next < first {
